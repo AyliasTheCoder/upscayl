@@ -12,7 +12,11 @@ import SettingsTab from "../components/SettingsTab";
 import { useAtom } from "jotai";
 import { logAtom } from "../atoms/logAtom";
 import { modelsListAtom } from "../atoms/modelsListAtom";
-import { customModelsPathAtom } from "../atoms/userSettingsAtom";
+import {
+  batchModeAtom,
+  customModelsPathAtom,
+  scaleAtom,
+} from "../atoms/userSettingsAtom";
 
 const Home = () => {
   // STATES
@@ -24,7 +28,7 @@ const Home = () => {
   const [model, setModel] = useState("realesrgan-x4plus");
   const [loaded, setLoaded] = useState(false);
   const [version, setVersion] = useState("");
-  const [batchMode, setBatchMode] = useState(false);
+  const [batchMode, setBatchMode] = useAtom(batchModeAtom);
   const [batchFolderPath, setBatchFolderPath] = useState("");
   const [upscaledBatchFolderPath, setUpscaledBatchFolderPath] = useState("");
   const [doubleUpscayl, setDoubleUpscayl] = useState(false);
@@ -44,6 +48,7 @@ const Home = () => {
   const [logData, setLogData] = useAtom(logAtom);
   const [customModelsPath, setCustomModelsPath] = useAtom(customModelsPathAtom);
   const [modelOptions, setModelOptions] = useAtom(modelsListAtom);
+  const [scale] = useAtom(scaleAtom);
 
   // (function () {
   //   let info = console.info;
@@ -87,6 +92,11 @@ const Home = () => {
         resetImagePaths();
       }
     };
+
+    // LOG
+    window.electron.on(commands.LOG, (_, data: string) => {
+      addToLog(data);
+    });
 
     // UPSCAYL PROGRESS
     window.electron.on(commands.UPSCAYL_PROGRESS, (_, data: string) => {
@@ -393,43 +403,48 @@ const Home = () => {
       setProgress("Hold on...");
 
       if (doubleUpscayl) {
-        await window.electron.send(commands.DOUBLE_UPSCAYL, {
+        window.electron.send(commands.DOUBLE_UPSCAYL, {
           imagePath,
           outputPath,
           model,
           gpuId: gpuId.length === 0 ? null : gpuId,
           saveImageAs,
+          scale,
         });
       } else if (batchMode) {
         setDoubleUpscayl(false);
-        await window.electron.send(commands.FOLDER_UPSCAYL, {
+        window.electron.send(commands.FOLDER_UPSCAYL, {
           scaleFactor,
           batchFolderPath,
           outputPath,
           model,
           gpuId: gpuId.length === 0 ? null : gpuId,
           saveImageAs,
+          scale,
         });
       } else {
-        await window.electron.send(commands.UPSCAYL, {
+        window.electron.send(commands.UPSCAYL, {
           scaleFactor,
           imagePath,
           outputPath,
           model,
           gpuId: gpuId.length === 0 ? null : gpuId,
           saveImageAs,
+          scale,
         });
       }
-    } else if (isVideo && videoPath !== "") {
-      await window.electron.send(commands.UPSCAYL_VIDEO, {
-        scaleFactor,
-        videoPath,
-        outputPath,
-        model,
-        gpuId: gpuId.length === 0 ? null : gpuId,
-        saveImageAs,
-      });
-    } else {
+    }
+    // else if (isVideo && videoPath !== "") {
+    // window.electron.send(commands.UPSCAYL_VIDEO, {
+    //   scaleFactor,
+    //   videoPath,
+    //   outputPath,
+    //   model,
+    //   gpuId: gpuId.length === 0 ? null : gpuId,
+    //   saveImageAs,
+    // });
+    // }
+    else {
       alert(`Please select ${isVideo ? "a video" : "an image"} to upscale`);
     }
   };
